@@ -1,0 +1,9 @@
+tmp/
+pg_data/
+pg_data_test/
+
+.env
+
+# Editor/IDE
+# .idea/
+# .vscode/
