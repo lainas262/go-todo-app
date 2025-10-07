@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
@@ -20,6 +22,7 @@ import (
 )
 
 var DB *pgxpool.Pool
+var WS *websocket.Conn
 
 type APIError struct {
 	Status  int    `json:"-"`
@@ -365,6 +368,7 @@ func updateUserTodo(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(users)
 	todoItem.Collaborators = users
 
+	wsjson.Write(context.Background(), WS, todoItem)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(todoItem)
@@ -536,6 +540,7 @@ func ConnectDB() {
 	)
 
 	config, err := pgxpool.ParseConfig(dsn)
+
 	if err != nil {
 		log.Fatalf("Failed to parse DB config: %v", err)
 	}
@@ -586,6 +591,32 @@ func main() {
 	todosRouter := apiRouter.PathPrefix("/todos").Subrouter()
 	todosRouter.HandleFunc("", getTodos).Methods("GET")
 	todosRouter.HandleFunc("/{id}", getTodo).Methods("GET")
+
+	r.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
+		wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			OriginPatterns: []string{"http://localhost:3000"},
+		})
+
+		WS = wsConn
+
+		if err != nil {
+			log.Printf("Websocket accept err: %v", err)
+			return
+		}
+		defer WS.CloseNow()
+
+		for {
+			var v any
+			err = wsjson.Read(context.Background(), WS, &v)
+			if err != nil {
+				log.Printf("Error reading message: %v", err)
+				break
+			}
+			log.Println(v)
+
+		}
+
+	})
 
 	// Add CORS headers
 	// This allows your React app at localhost:3000 to make requests to your Go API
