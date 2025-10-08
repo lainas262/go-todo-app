@@ -1,8 +1,8 @@
-package models
+package model
 
 import "time"
 
-type ToDoItem struct {
+type Todo struct {
 	Id            int64     `json:"id"`
 	Title         string    `json:"title"`
 	Body          string    `json:"body"`

@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"example/todolist/models"
+	"example/todolist/handler"
+	"example/todolist/model"
+	"example/todolist/repository"
+	"example/todolist/router"
+	"example/todolist/service"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,7 +18,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,12 +44,12 @@ func WriteError(w http.ResponseWriter, err *APIError) {
 	}
 }
 
-var toDoItems = []models.ToDoItem{}
+var toDoItems = []model.Todo{}
 
 func getUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, _ := strconv.Atoi(vars["userId"])
-	var user models.User
+	var user model.User
 
 	rows, err := DB.Query(context.Background(), "select * from users where id=$1", id)
 
@@ -54,7 +57,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error quering user id '%v' : %v", id, err)
 	}
 
-	user, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[models.User])
+	user, err = pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[model.User])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			WriteError(w, &APIError{404, "Not Found"})
@@ -76,7 +79,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, &APIError{500, "Server Error"})
 		return
 	}
-	users, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.User])
+	users, err := pgx.CollectRows(rows, pgx.RowToStructByName[model.User])
 	if err != nil {
 		log.Printf("Error collecting rows: %v", err)
 		WriteError(w, &APIError{500, "Server Error"})
@@ -87,7 +90,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
-	var newUserData models.User
+	var newUserData model.User
 	var newId int64
 
 	err := json.NewDecoder(r.Body).Decode(&newUserData)
@@ -151,7 +154,7 @@ func getUserTodos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todos, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.ToDoItem])
+	todos, err := pgx.CollectRows(rows, pgx.RowToStructByName[model.Todo])
 
 	if err != nil {
 		log.Printf("Error processing rows todos: %v", err)
@@ -160,7 +163,7 @@ func getUserTodos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	todoIds := make([]int64, 0, len(todos))
-	todoIndex := make(map[int64]*models.ToDoItem, len(todos))
+	todoIndex := make(map[int64]*model.Todo, len(todos))
 
 	for i, val := range todos {
 		todoIds = append(todoIds, val.Id)
@@ -185,7 +188,7 @@ func getUserTodos(w http.ResponseWriter, r *http.Request) {
 
 	for collabRows.Next() {
 		var todoId int64
-		var user models.User
+		var user model.User
 
 		if err := collabRows.Scan(&todoId, &user.Id, &user.FirstName, &user.LastName, &user.Email, &user.UserName); err != nil {
 			log.Printf("Error scanning collaborators: %v", err)
@@ -206,7 +209,7 @@ func getUserTodo(w http.ResponseWriter, r *http.Request) {
 	userId, _ := strconv.Atoi(vars["userId"])
 	todoId, _ := strconv.Atoi(vars["todoId"])
 
-	var todo models.ToDoItem
+	var todo model.Todo
 
 	err := DB.QueryRow(context.Background(), `select * from todos where author_id=$1 and id=$2
 	`, userId, todoId).Scan(&todo.Id, &todo.Author, &todo.Body, &todo.Title, &todo.CreatedAt, &todo.UpdatedAt)
@@ -236,7 +239,7 @@ func getUserTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for collabRows.Next() {
-		var user models.User
+		var user model.User
 
 		if err := collabRows.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.UserName); err != nil {
 			log.Printf("Error parsing row todo collaborator: %v", err)
@@ -254,7 +257,7 @@ func getUserTodo(w http.ResponseWriter, r *http.Request) {
 func createUserTodo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userId, _ := strconv.Atoi(vars["userId"])
-	var newTodo models.ToDoItem
+	var newTodo model.Todo
 	newTodo.Author = int64(userId)
 
 	err := json.NewDecoder(r.Body).Decode(&newTodo)
@@ -315,7 +318,7 @@ func updateUserTodo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userId, _ := strconv.Atoi(vars["userId"])
 	todoId, _ := strconv.Atoi(vars["todoId"])
-	var todoItem models.ToDoItem
+	var todoItem model.Todo
 
 	err := json.NewDecoder(r.Body).Decode(&todoItem)
 
@@ -357,7 +360,7 @@ func updateUserTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	users, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.User])
+	users, err := pgx.CollectRows(rows, pgx.RowToStructByName[model.User])
 
 	if err != nil {
 		log.Printf("Error collecting rows: %v", err)
@@ -477,7 +480,7 @@ func getUserCollaborationTodos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collaborationTodos, err := pgx.CollectRows(rows, pgx.RowToStructByName[models.ToDoItem])
+	collaborationTodos, err := pgx.CollectRows(rows, pgx.RowToStructByName[model.Todo])
 
 	if err != nil {
 		log.Printf("Error collecting rows: %v", err)
@@ -494,7 +497,7 @@ func updateCollaborationTodo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	todoId, _ := strconv.Atoi(vars["todoId"])
-	var todoItem models.ToDoItem
+	var todoItem model.Todo
 
 	err := json.NewDecoder(r.Body).Decode(&todoItem)
 
@@ -566,65 +569,17 @@ func main() {
 		log.Printf("Warning: Could not load .env file. Falling back to system environment variables: %v", err)
 	}
 
+	//setup db connection pool
 	ConnectDB()
 	defer DB.Close()
+	//repositories
+	userRepo := repository.CreateUserRepository(DB)
+	//services
+	userService := service.CreateUserService(userRepo)
 
-	r := mux.NewRouter()
-	apiRouter := r.PathPrefix("/api").Subrouter()
+	//handlers
+	userHandler := handler.CreateUserHandler(userService)
+	handler := router.SetupRouter(&router.Handlers{UserHandler: userHandler})
+	http.ListenAndServe(":8080", handler)
 
-	usersRouter := apiRouter.PathPrefix("/users").Subrouter()
-	usersRouter.HandleFunc("", getUsers).Methods("GET")
-	usersRouter.HandleFunc("", createUser).Methods("POST")
-	usersRouter.HandleFunc("/{userId}", getUser).Methods("GET")
-	usersRouter.HandleFunc("/{userId}/todos", getUserTodos).Methods("GET")
-	usersRouter.HandleFunc("/{userId}/todos", createUserTodo).Methods("POST")
-	usersRouter.HandleFunc("/{userId}/todos/{todoId}", getUserTodo).Methods("GET")
-	usersRouter.HandleFunc("/{userId}/todos/{todoId}", deleteUserTodo).Methods("DELETE")
-	usersRouter.HandleFunc("/{userId}/todos/{todoId}", updateUserTodo).Methods("PATCH")
-
-	usersRouter.HandleFunc("/{userId}/todos/{todoId}/collaborators", updateUserTodoCollaborators).Methods("PATCH")
-	usersRouter.HandleFunc("/{userId}/todos/{todoId}/collaborators/{collaboratorId}", deleteTodoCollaborator).Methods("DELETE")
-
-	usersRouter.HandleFunc("/{userId}/collaborations", getUserCollaborationTodos).Methods("GET")
-	usersRouter.HandleFunc("/{userId}/collaborations/{todoId}", updateCollaborationTodo).Methods("PATCH")
-
-	todosRouter := apiRouter.PathPrefix("/todos").Subrouter()
-	todosRouter.HandleFunc("", getTodos).Methods("GET")
-	todosRouter.HandleFunc("/{id}", getTodo).Methods("GET")
-
-	r.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
-		wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			OriginPatterns: []string{"http://localhost:3000"},
-		})
-
-		WS = wsConn
-
-		if err != nil {
-			log.Printf("Websocket accept err: %v", err)
-			return
-		}
-		defer WS.CloseNow()
-
-		for {
-			var v any
-			err = wsjson.Read(context.Background(), WS, &v)
-			if err != nil {
-				log.Printf("Error reading message: %v", err)
-				break
-			}
-			log.Println(v)
-
-		}
-
-	})
-
-	// Add CORS headers
-	// This allows your React app at localhost:3000 to make requests to your Go API
-	corsHandler := handlers.CORS(
-		handlers.AllowedOrigins([]string{"http://localhost:3000"}),
-		handlers.AllowedMethods([]string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"}),
-		handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
-	)(r)
-
-	http.ListenAndServe(":8080", corsHandler)
 }
