@@ -2,6 +2,7 @@ package router
 
 import (
 	"example/todolist/handler"
+	"example/todolist/middleware"
 	"net/http"
 
 	"github.com/gorilla/handlers"
@@ -10,19 +11,29 @@ import (
 
 type Handlers struct {
 	UserHandler *handler.UserHandler
+	TodoHandler *handler.TodoHandler
 }
 
 func SetupRouter(h *Handlers) http.Handler {
 	r := mux.NewRouter()
 	apiRouter := r.PathPrefix("/api").Subrouter()
+	apiRouter.HandleFunc("/login", h.UserHandler.Login).Methods("POST")
 
 	usersRouter := apiRouter.PathPrefix("/users").Subrouter()
 	usersRouter.HandleFunc("", h.UserHandler.CreateUser).Methods("POST")
+
+	todosRouter := apiRouter.PathPrefix("/todos").Subrouter()
+	todosRouter.Use(middleware.JWTAuth)
+	todosRouter.HandleFunc("", h.TodoHandler.GetUserTodos).Methods("GET")
+	todosRouter.HandleFunc("", h.TodoHandler.CreateTodo).Methods("POST")
+	todosRouter.HandleFunc("/{todoId}", h.TodoHandler.UpdateTodo).Methods("PATCH")
+
+	// todosRouter.HandleFunc("", getTodos).Methods("GET")
+
 	// usersRouter.HandleFunc("", getUsers).Methods("GET")
 
 	// usersRouter.HandleFunc("/{userId}", getUser).Methods("GET")
 	// usersRouter.HandleFunc("/{userId}/todos", getUserTodos).Methods("GET")
-	// usersRouter.HandleFunc("/{userId}/todos", createUserTodo).Methods("POST")
 	// usersRouter.HandleFunc("/{userId}/todos/{todoId}", getUserTodo).Methods("GET")
 	// usersRouter.HandleFunc("/{userId}/todos/{todoId}", deleteUserTodo).Methods("DELETE")
 	// usersRouter.HandleFunc("/{userId}/todos/{todoId}", updateUserTodo).Methods("PATCH")
@@ -33,8 +44,6 @@ func SetupRouter(h *Handlers) http.Handler {
 	// usersRouter.HandleFunc("/{userId}/collaborations", getUserCollaborationTodos).Methods("GET")
 	// usersRouter.HandleFunc("/{userId}/collaborations/{todoId}", updateCollaborationTodo).Methods("PATCH")
 
-	// todosRouter := apiRouter.PathPrefix("/todos").Subrouter()
-	// todosRouter.HandleFunc("", getTodos).Methods("GET")
 	// todosRouter.HandleFunc("/{id}", getTodo).Methods("GET")
 
 	// r.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {

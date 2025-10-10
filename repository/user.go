@@ -39,6 +39,26 @@ func (r *UserRepository) GetUserById(ctx context.Context, id int64) (*model.User
 	return &user, nil
 }
 
+func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*model.User, error) {
+
+	query := `
+	SELECT id, first_name, last_name, email, username, password_hash
+	FROM users
+	WHERE email=$1
+	`
+
+	var user model.User
+	err := r.db.QueryRow(ctx, query, email).Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.UserName, &user.PasswordHash)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("user not found") // User not found
+		}
+		return nil, fmt.Errorf("query user by email: %w", err)
+	}
+	return &user, nil
+}
+
 func (r *UserRepository) CreateUser(ctx context.Context, user *model.User) (*model.User, error) {
 
 	query := `

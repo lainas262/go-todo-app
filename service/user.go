@@ -66,8 +66,61 @@ func (s *UserService) CreateUser(ctx context.Context, req api.RequestCreateUser)
 
 	log.Printf("UserService.CreateUser - User created successfully in database: %v", user.Id)
 
+	log.Printf("UserService.CreateUser - Generating access token")
+
+	token, err := auth.GenerateAccessToken(user.Id, user.UserName)
+
+	if err != nil {
+		log.Printf("UserService.CreateUser - Generate token error: %v", err)
+	}
+
+	log.Printf("UserService.CreateUser - Token generated successfully")
+
 	return &api.ResponseLoginUser{
-		AccessToken: "Lakis Very Secret Token",
+		AccessToken: token,
+		Username:    user.UserName,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+	}, nil
+}
+
+func (s *UserService) Login(ctx context.Context, req api.RequestLoginUser) (*api.ResponseLoginUser, error) {
+
+	log.Printf("UserService.Login - Starting user creation for: %s", req.Email)
+
+	if req.Email == "" || req.Password == "" {
+		log.Printf("UserService.Login - Validation failed: missing required fields")
+		return nil, fmt.Errorf("email and password are required")
+	}
+
+	user, err := s.repository.GetUserByEmail(ctx, req.Email)
+
+	if err != nil {
+		log.Printf("UserService.Login - Database error: %v", err)
+		return nil, fmt.Errorf("failed to load user")
+	}
+
+	log.Printf("UserService.Login - Found in database: %v", user.Id)
+
+	if err := auth.VerifyPassword(req.Password, *user.PasswordHash); err != nil {
+		log.Printf("UserService.Login - Error verifying password hash")
+		return nil, fmt.Errorf("email or password incorrect")
+	}
+
+	log.Printf("UserService.Login - User authenticated")
+
+	log.Printf("UserService.Login - Generating access token")
+
+	token, err := auth.GenerateAccessToken(user.Id, user.UserName)
+
+	if err != nil {
+		log.Printf("UserService.Login - Generate token error: %v", err)
+	}
+
+	log.Printf("UserService.Login - Token generated successfully")
+
+	return &api.ResponseLoginUser{
+		AccessToken: token,
 		Username:    user.UserName,
 		FirstName:   user.FirstName,
 		LastName:    user.LastName,
