@@ -21,12 +21,23 @@ func SetupRouter(h *Handlers) http.Handler {
 
 	usersRouter := apiRouter.PathPrefix("/users").Subrouter()
 	usersRouter.HandleFunc("", h.UserHandler.CreateUser).Methods("POST")
+	usersSelfRouter := usersRouter.PathPrefix("/self").Subrouter()
+	usersSelfRouter.Use(middleware.JWTAuth)
+	usersSelfRouter.HandleFunc("", h.UserHandler.GetSelf).Methods("GET")
 
 	todosRouter := apiRouter.PathPrefix("/todos").Subrouter()
 	todosRouter.Use(middleware.JWTAuth)
 	todosRouter.HandleFunc("", h.TodoHandler.GetUserTodos).Methods("GET")
 	todosRouter.HandleFunc("", h.TodoHandler.CreateTodo).Methods("POST")
 	todosRouter.HandleFunc("/{todoId}", h.TodoHandler.UpdateTodo).Methods("PATCH")
+	todosRouter.HandleFunc("/{todoId}", h.TodoHandler.DeleteTodo).Methods("DELETE")
+	todosRouter.HandleFunc("/{todoId}/collaborators", h.TodoHandler.UpdateCollaborators).Methods("PATCH")
+	todosRouter.HandleFunc("/{todoId}/collaborators", h.TodoHandler.DeleteCollaborator).Methods("DELETE")
+
+	collaborationsRouter := apiRouter.PathPrefix("/collaborations").Subrouter()
+	collaborationsRouter.Use(middleware.JWTAuth)
+	collaborationsRouter.HandleFunc("", h.TodoHandler.GetUserCollaborationTodos).Methods("GET")
+	collaborationsRouter.HandleFunc("/{todoId}", h.TodoHandler.UpdateCollaborationTodo).Methods("PATCH")
 
 	// todosRouter.HandleFunc("", getTodos).Methods("GET")
 

@@ -19,3 +19,9 @@ type ResponseLoginUser struct {
 	FirstName   string `json:"first_name"`
 	LastName    string `json:"last_name"`
 }
+
+type ResponseGetSelfUser struct {
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}

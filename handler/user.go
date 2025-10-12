@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"example/todolist/api"
+	"example/todolist/middleware"
 	"example/todolist/response"
 	"example/todolist/service"
 	"log"
@@ -76,6 +77,28 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 		MaxAge: 60 * 60 * 24,
 		Path:   "/",
 	})
+
+	response.WriteJSON(w, http.StatusOK, user)
+}
+
+func (h *UserHandler) GetSelf(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value(middleware.UserIdKey).(int64)
+	if !ok {
+		response.WriteError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	log.Printf("GetSelf - Request received: ")
+
+	user, err := h.service.GetSelf(context.Background(), userId)
+
+	if err != nil {
+		log.Printf("GetSelf - Service error: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	log.Printf("GetSelf - Success: user fetched with username=%s", user.Username)
 
 	response.WriteJSON(w, http.StatusOK, user)
 }

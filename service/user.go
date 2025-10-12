@@ -126,3 +126,8 @@ func (s *UserService) Login(ctx context.Context, req api.RequestLoginUser) (*api
 		LastName:    user.LastName,
 	}, nil
 }
+
+func (s *UserService) GetSelf(ctx context.Context, userId int64) (*api.ResponseGetSelfUser, error) {
+
+	return nil, nil
+}
