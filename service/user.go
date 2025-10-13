@@ -86,7 +86,7 @@ func (s *UserService) CreateUser(ctx context.Context, req api.RequestCreateUser)
 
 func (s *UserService) Login(ctx context.Context, req api.RequestLoginUser) (*api.ResponseLoginUser, error) {
 
-	log.Printf("UserService.Login - Starting user creation for: %s", req.Email)
+	log.Printf("UserService.Login - Starting login for: %s", req.Email)
 
 	if req.Email == "" || req.Password == "" {
 		log.Printf("UserService.Login - Validation failed: missing required fields")
@@ -129,5 +129,21 @@ func (s *UserService) Login(ctx context.Context, req api.RequestLoginUser) (*api
 
 func (s *UserService) GetSelf(ctx context.Context, userId int64) (*api.ResponseGetSelfUser, error) {
 
-	return nil, nil
+	log.Printf("UserService.GetSelf - Starting user fetching for: %v", userId)
+
+	user, err := s.repository.GetUserById(ctx, userId)
+
+	if err != nil {
+		log.Printf("UserService.GetSelf - Database error: %v", err)
+		return nil, fmt.Errorf("failed to load user")
+	}
+
+	log.Printf("UserService.GetSelf - Found in database: %v", user.Id)
+
+	// GetUserById
+	return &api.ResponseGetSelfUser{
+		Username:  user.UserName,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+	}, nil
 }
