@@ -5,6 +5,8 @@ import (
 	"example/todolist/middleware"
 	"net/http"
 
+	wsHandler "example/todolist/ws/handler"
+
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
@@ -12,6 +14,7 @@ import (
 type Handlers struct {
 	UserHandler *handler.UserHandler
 	TodoHandler *handler.TodoHandler
+	WsHandler   *wsHandler.WebsocketHandler
 }
 
 func SetupRouter(h *Handlers) http.Handler {
@@ -39,49 +42,9 @@ func SetupRouter(h *Handlers) http.Handler {
 	collaborationsRouter.HandleFunc("", h.TodoHandler.GetUserCollaborationTodos).Methods("GET")
 	collaborationsRouter.HandleFunc("/{todoId}", h.TodoHandler.UpdateCollaborationTodo).Methods("PATCH")
 
-	// todosRouter.HandleFunc("", getTodos).Methods("GET")
-
-	// usersRouter.HandleFunc("", getUsers).Methods("GET")
-
-	// usersRouter.HandleFunc("/{userId}", getUser).Methods("GET")
-	// usersRouter.HandleFunc("/{userId}/todos", getUserTodos).Methods("GET")
-	// usersRouter.HandleFunc("/{userId}/todos/{todoId}", getUserTodo).Methods("GET")
-	// usersRouter.HandleFunc("/{userId}/todos/{todoId}", deleteUserTodo).Methods("DELETE")
-	// usersRouter.HandleFunc("/{userId}/todos/{todoId}", updateUserTodo).Methods("PATCH")
-
-	// usersRouter.HandleFunc("/{userId}/todos/{todoId}/collaborators", updateUserTodoCollaborators).Methods("PATCH")
-	// usersRouter.HandleFunc("/{userId}/todos/{todoId}/collaborators/{collaboratorId}", deleteTodoCollaborator).Methods("DELETE")
-
-	// usersRouter.HandleFunc("/{userId}/collaborations", getUserCollaborationTodos).Methods("GET")
-	// usersRouter.HandleFunc("/{userId}/collaborations/{todoId}", updateCollaborationTodo).Methods("PATCH")
-
-	// todosRouter.HandleFunc("/{id}", getTodo).Methods("GET")
-
-	// r.HandleFunc("/subscribe", func(w http.ResponseWriter, r *http.Request) {
-	// 	wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-	// 		OriginPatterns: []string{"http://localhost:3000"},
-	// 	})
-
-	// 	WS = wsConn
-
-	// 	if err != nil {
-	// 		log.Printf("Websocket accept err: %v", err)
-	// 		return
-	// 	}
-	// 	defer WS.CloseNow()
-
-	// 	for {
-	// 		var v any
-	// 		err = wsjson.Read(context.Background(), WS, &v)
-	// 		if err != nil {
-	// 			log.Printf("Error reading message: %v", err)
-	// 			break
-	// 		}
-	// 		log.Println(v)
-
-	// 	}
-
-	// })
+	wsRouter := r.PathPrefix("/subscribe").Subrouter()
+	wsRouter.Use(middleware.WbsocketTokenAuth)
+	wsRouter.HandleFunc("", h.WsHandler.Subscribe)
 
 	// Add CORS headers
 	// This allows your React app at localhost:3000 to make requests to your Go API

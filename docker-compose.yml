@@ -26,6 +26,14 @@ services:
     networks:
       - learning
 
+  redis_todos_app:
+    image: redis:8
+    container_name: golang_redis_container
+    ports:
+      - 8891:6379
+    networks:
+      - learning
+
   postgresdb:
     image: postgres:18
     container_name: postgres_container
