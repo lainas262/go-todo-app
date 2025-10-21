@@ -3,7 +3,7 @@ package handler
 import (
 	"example/todolist/middleware"
 	"example/todolist/response"
-	service "example/todolist/ws/service"
+	"example/todolist/ws/hub"
 	"log"
 	"net/http"
 
@@ -11,11 +11,11 @@ import (
 )
 
 type WebsocketHandler struct {
-	service *service.WebsocketService
+	hub *hub.Hub
 }
 
-func CreateWebsocketHandler(service *service.WebsocketService) *WebsocketHandler {
-	return &WebsocketHandler{service: service}
+func CreateWebsocketHandler(service *hub.Hub) *WebsocketHandler {
+	return &WebsocketHandler{hub: service}
 }
 
 func (h *WebsocketHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
@@ -27,6 +27,8 @@ func (h *WebsocketHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Websocket Subscribe - Request received: %v", userId)
 
+	token := r.FormValue("token")
+
 	wsConn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: []string{"http://localhost:3000"},
 	})
@@ -36,13 +38,12 @@ func (h *WebsocketHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientConn := &service.Client{
-		UserId: userId,
-		Conn:   wsConn,
-		Send:   make(chan *service.ClientMessage),
-	}
+	// passing token to hit api later. Ideally this would be handle with a gateway layer for auth
+	// and internal service communication wouldn't need this perhaps
+	client := hub.NewClient(token, userId, wsConn)
 
-	h.service.Register <- clientConn
-	go h.service.ReadMessages(clientConn)
-	go h.service.WriteMessages(clientConn)
+	h.hub.RegisterClient(client)
+	go h.hub.CreateClientRooms(client)
+	go h.hub.ReadMessages(client)
+	go h.hub.WriteMessages(client)
 }

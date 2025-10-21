@@ -17,6 +17,7 @@ services:
     build: .
     ports:
       - 8890:8080
+      - 6060:6060
     restart: on-failure
     volumes:
       - .:/app

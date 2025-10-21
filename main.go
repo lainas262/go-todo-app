@@ -12,14 +12,17 @@ import (
 	"os"
 	"time"
 
-	wsHandler "example/todolist/ws/handler"
-	wsService "example/todolist/ws/service"
+	"example/todolist/ws/hub"
+
+	_ "net/http/pprof"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 )
 
 var DB *pgxpool.Pool
+var Redis *redis.Client
 
 func ConnectDB() {
 
@@ -52,6 +55,30 @@ func ConnectDB() {
 	log.Println("Database connection pool successfully established")
 }
 
+func ConnectRedis() {
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT")),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
+	})
+	pong, err := client.Ping(context.Background()).Result()
+	if err != nil {
+		log.Fatalf("Failed to connect Redis: %v", err)
+	}
+	fmt.Println(pong)
+
+	Redis = client
+}
+
+func init() {
+	go func() {
+		log.Println("Starting pprof server on :6060")
+		if err := http.ListenAndServe("0.0.0.0:6060", nil); err != nil {
+			log.Println("pprof failed:", err)
+		}
+	}()
+}
+
 func main() {
 
 	err := godotenv.Load()
@@ -62,6 +89,8 @@ func main() {
 	//setup db connection pool
 	ConnectDB()
 	defer DB.Close()
+
+	ConnectRedis()
 	//repositories
 	userRepo := repository.CreateUserRepository(DB)
 	todoRepo := repository.CreateTodoRepository(DB)
@@ -74,9 +103,10 @@ func main() {
 	todoHandler := handler.CreateTodoHandler(todoService)
 
 	//ws
-	wsService := wsService.CreateWebsocketService()
-	go wsService.StartHub()
-	wsHandler := wsHandler.CreateWebsocketHandler(wsService)
+	hub := hub.NewHub(Redis)
+	hub.RegisterRoutes()
+	go hub.Run()
+	wsHandler := handler.CreateWebsocketHandler(hub)
 
 	handler := router.SetupRouter(&router.Handlers{UserHandler: userHandler, TodoHandler: todoHandler, WsHandler: wsHandler})
 	http.ListenAndServe(":8080", handler)

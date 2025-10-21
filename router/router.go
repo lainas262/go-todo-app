@@ -5,8 +5,6 @@ import (
 	"example/todolist/middleware"
 	"net/http"
 
-	wsHandler "example/todolist/ws/handler"
-
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
@@ -14,7 +12,7 @@ import (
 type Handlers struct {
 	UserHandler *handler.UserHandler
 	TodoHandler *handler.TodoHandler
-	WsHandler   *wsHandler.WebsocketHandler
+	WsHandler   *handler.WebsocketHandler
 }
 
 func SetupRouter(h *Handlers) http.Handler {
