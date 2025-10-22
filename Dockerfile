@@ -4,6 +4,7 @@ RUN apk update && apk add --no-cache git && apk add --no-cach bash && apk add bu
 
 RUN mkdir /app
 WORKDIR /app
+RUN mkdir -p /tmp/air && chmod 1777 /tmp/air
 
 COPY . .
 COPY .env .

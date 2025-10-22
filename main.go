@@ -21,6 +21,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+
 var DB *pgxpool.Pool
 var Redis *redis.Client
 
@@ -105,9 +106,13 @@ func main() {
 	//ws
 	hub := hub.NewHub(Redis)
 	hub.RegisterRoutes()
+	
+	
 	go hub.Run()
 	wsHandler := handler.CreateWebsocketHandler(hub)
 
 	handler := router.SetupRouter(&router.Handlers{UserHandler: userHandler, TodoHandler: todoHandler, WsHandler: wsHandler})
 	http.ListenAndServe(":8080", handler)
+
+	
 }

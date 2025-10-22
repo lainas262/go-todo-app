@@ -47,7 +47,6 @@ services:
       - '1234:5432'
     volumes:
       - ./pg_data:/var/lib/postgresql/18/docker
-    user: "1001:1001"
     networks:
       - learning
 
@@ -63,7 +62,6 @@ services:
       - '4568:5432'
     volumes:
       - ./pg_data_test:/var/lib/postgresql/18/docker
-    user: "1001:1001"
     networks:
       - learning
 
